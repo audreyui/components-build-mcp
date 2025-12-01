@@ -392,6 +392,116 @@ cn(isActive && 'active', 'base-styles')`,
     }
   },
 
+  {
+    id: 'uses-semantic-tokens',
+    name: 'Uses Semantic Design Tokens',
+    description: 'Use semantic token names (background, foreground, primary) instead of color names',
+    category: 'styling',
+    severity: 'warning',
+    weight: 8,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Semantic tokens that SHOULD be used
+      const semanticTokens = [
+        'background', 'foreground',
+        'primary', 'primary-foreground',
+        'secondary', 'secondary-foreground',
+        'muted', 'muted-foreground',
+        'accent', 'accent-foreground',
+        'destructive', 'destructive-foreground',
+        'border', 'input', 'ring',
+        'card', 'card-foreground',
+        'popover', 'popover-foreground'
+      ];
+
+      // Check if component uses Tailwind classes
+      const hasTailwindClasses = /className=.*(?:bg-|text-|border-)/.test(code);
+
+      if (hasTailwindClasses) {
+        // Check for non-semantic color usage (e.g., bg-white, text-black, bg-gray-100)
+        const nonSemanticColors = code.match(/(?:bg|text|border)-(?:white|black|transparent)/g) || [];
+        const paletteColors = code.match(/(?:bg|text|border)-(?:gray|slate|zinc|neutral|stone)-\d{2,3}/g) || [];
+
+        // Check if semantic tokens are used
+        const usesSemanticTokens = semanticTokens.some(token =>
+          new RegExp(`(?:bg|text|border)-${token}(?:-foreground)?`).test(code)
+        );
+
+        // If using lots of non-semantic colors and no semantic tokens, flag it
+        if ((nonSemanticColors.length + paletteColors.length) > 3 && !usesSemanticTokens) {
+          violations.push({
+            ruleId: 'uses-semantic-tokens',
+            message: 'Use semantic design tokens instead of color names for better theming support',
+            suggestion: `Replace bg-white → bg-background, text-black → text-foreground, bg-gray-100 → bg-muted, etc.
+
+Semantic tokens to use:
+- background/foreground: Page background and main text
+- primary/primary-foreground: Brand color and its text
+- secondary/secondary-foreground: Secondary actions
+- muted/muted-foreground: Subtle backgrounds and text
+- accent/accent-foreground: Highlights
+- destructive/destructive-foreground: Errors/warnings
+- border, input, ring: Borders and focus states
+- card/card-foreground: Card surfaces`
+          });
+        }
+
+        // Check for direct color values that should use tokens
+        const directWhiteBlack = code.match(/(?:bg|text|border)-(?:white|black)/g);
+        if (directWhiteBlack && directWhiteBlack.length > 0) {
+          violations.push({
+            ruleId: 'uses-semantic-tokens',
+            message: `Found ${directWhiteBlack.length} uses of bg-white/black - these break dark mode`,
+            suggestion: 'bg-white → bg-background or bg-card, text-black → text-foreground'
+          });
+        }
+      }
+
+      // Check for CSS variable usage without semantic naming
+      const cssVarUsage = code.match(/var\(--[\w-]+\)/g);
+      if (cssVarUsage) {
+        const nonSemanticVars = cssVarUsage.filter(v => {
+          const varName = v.match(/--[\w-]+/)?.[0] || '';
+          // Check if it's a color-based name instead of semantic
+          return /--(?:red|blue|green|yellow|purple|pink|gray|white|black|color-\d)/.test(varName);
+        });
+
+        if (nonSemanticVars.length > 0) {
+          violations.push({
+            ruleId: 'uses-semantic-tokens',
+            message: `Found CSS variables with color names instead of semantic names: ${nonSemanticVars.slice(0, 3).join(', ')}`,
+            suggestion: 'Use semantic names: --primary instead of --blue, --destructive instead of --red'
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Hardcoded colors break dark mode
+<div className="bg-white text-black border-gray-200">
+  <button className="bg-blue-500 text-white">Click</button>
+</div>`,
+      good: `// Semantic tokens adapt to theme
+<div className="bg-background text-foreground border-border">
+  <button className="bg-primary text-primary-foreground">Click</button>
+</div>
+
+/* In globals.css */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+}
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+}`
+    }
+  },
+
   // ============================================
   // DATA ATTRIBUTES RULES
   // ============================================
