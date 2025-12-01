@@ -269,8 +269,11 @@ return <div className="content" {...props} />;`
         const args = match[1];
 
         // Check 1: className should be last
-        // className followed by a comma means something comes after it
-        if (/className\s*,/.test(args)) {
+        // className followed by a comma AND then another argument means it's NOT last
+        // But trailing commas are OK: cn("base", className,) - className IS last here
+        // We check: is there actual content (not just whitespace) after "className,"?
+        const classNameNotLast = /className\s*,\s*(?!\s*$)(?!\s*\))[\w'"&|{]/.test(args);
+        if (classNameNotLast) {
           violations.push({
             ruleId: 'class-order',
             message: 'className should be the last argument in cn() to allow user overrides',
