@@ -332,8 +332,8 @@ cn(isActive && 'active', 'base-styles')`,
     check: (code) => {
       const violations: RuleViolation[] = [];
 
-      // Check for Tailwind arbitrary hex values: bg-[#5B9BD5], text-[#2B5BA8], etc.
-      const arbitraryHexColors = code.match(/(?:bg|text|border|fill|stroke)-\[#[0-9A-Fa-f]{3,8}(?:\/\d+)?\]/g);
+      // Check for Tailwind arbitrary hex values: bg-[#5B9BD5], text-[#2B5BA8], from-[#hex], etc.
+      const arbitraryHexColors = code.match(/(?:bg|text|border|fill|stroke|from|to|via|ring|outline|shadow|accent|caret|decoration)-\[#[0-9A-Fa-f]{3,8}(?:\/\d+)?\]/g);
 
       if (arbitraryHexColors && arbitraryHexColors.length > 0) {
         violations.push({
@@ -348,7 +348,7 @@ Good: bg-primary text-primary-foreground (with CSS vars handling dark mode)`,
       }
 
       // Check for manual dark mode color overrides (sign of missing design tokens)
-      const darkModeColorOverrides = code.match(/dark:(?:bg|text|border)-\[#[0-9A-Fa-f]{3,8}/g);
+      const darkModeColorOverrides = code.match(/dark:(?:bg|text|border|fill|stroke|from|to|via|ring|outline|shadow|accent|caret|decoration)-\[#[0-9A-Fa-f]{3,8}/g);
 
       if (darkModeColorOverrides && darkModeColorOverrides.length > 0) {
         violations.push({
