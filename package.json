@@ -38,7 +38,7 @@
     "design-system",
     "component-library"
   ],
-  "author": "AudreyUI <hello@audreyui.com> (https://audreyui.com)",
+  "author": "Audrey Klammer <audrey.ck@gmail.com> (https://audreyui.com)",
   "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
