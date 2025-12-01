@@ -107,8 +107,11 @@ export const RULES: Rule[] = [
     check: (code) => {
       const violations: RuleViolation[] = [];
 
-      // Find all Props type definitions
-      const propsMatch = code.match(/(?:type|interface)\s+(\w+Props)/g);
+      // Remove import statements to avoid matching imported types like `type VariantProps`
+      const codeWithoutImports = code.replace(/^import\s+.*$/gm, '');
+
+      // Find all Props type definitions (only in actual type/interface declarations, not imports)
+      const propsMatch = codeWithoutImports.match(/(?:type|interface)\s+(\w+Props)/g);
 
       if (propsMatch) {
         for (const match of propsMatch) {
