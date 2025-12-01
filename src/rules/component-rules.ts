@@ -918,23 +918,118 @@ export const Content = ...`
   // POLYMORPHISM RULES
   // ============================================
   {
-    id: 'supports-as-prop',
-    name: 'Supports as/asChild Prop',
-    description: 'Components that render interactive elements should support polymorphism via as or asChild prop',
+    id: 'supports-polymorphism',
+    name: 'Supports Polymorphism',
+    description: 'Interactive and layout components should support polymorphism via as or asChild prop',
     category: 'composition',
-    severity: 'info',
-    weight: 3,
+    severity: 'warning',
+    weight: 8,
     check: (code) => {
-      // This is informational - not checking automatically
-      return [];
+      const violations: RuleViolation[] = [];
+
+      // Check if this is an interactive component (Button, Link, etc.)
+      const isInteractiveComponent = /export\s+(?:const|function)\s+(?:Button|Link|Clickable|Interactive|Action|Trigger)/i.test(code);
+
+      // Check if this is a layout/container component
+      const isLayoutComponent = /export\s+(?:const|function)\s+(?:Box|Container|Flex|Grid|Stack|Card|Section|Article|Main|Header|Footer|Aside|Nav)/i.test(code);
+
+      // Check if component uses Slot from Radix
+      const usesSlot = /import.*Slot.*from\s+['"]@radix-ui\/react-slot['"]/.test(code);
+      const hasAsChild = /asChild/.test(code);
+
+      // Check if component accepts 'as' prop
+      const hasAsProp = /\bas\s*[?:]/.test(code) || /as\s*=/.test(code) || /as:\s*Element/.test(code);
+
+      // Interactive components SHOULD support polymorphism
+      if (isInteractiveComponent && !usesSlot && !hasAsChild && !hasAsProp) {
+        violations.push({
+          ruleId: 'supports-polymorphism',
+          message: 'Interactive component should support polymorphism (as or asChild prop)',
+          suggestion: `Use Radix Slot for asChild pattern:
+
+import { Slot } from "@radix-ui/react-slot"
+
+function Button({ asChild = false, ...props }) {
+  const Comp = asChild ? Slot : "button"
+  return <Comp {...props} />
+}
+
+// Usage: <Button asChild><a href="/">Link Button</a></Button>`
+        });
+      }
+
+      // Layout components SHOULD support 'as' prop for semantic HTML
+      if (isLayoutComponent && !hasAsProp && !hasAsChild) {
+        violations.push({
+          ruleId: 'supports-polymorphism',
+          message: 'Layout component should support the "as" prop for semantic HTML',
+          suggestion: `Add 'as' prop for semantic flexibility:
+
+type BoxProps<E extends React.ElementType = 'div'> = {
+  as?: E;
+} & React.ComponentPropsWithoutRef<E>;
+
+function Box<E extends React.ElementType = 'div'>({
+  as,
+  ...props
+}: BoxProps<E>) {
+  const Element = as || 'div';
+  return <Element {...props} />;
+}
+
+// Usage:
+<Box as="section">Content</Box>
+<Box as="nav">Navigation</Box>
+<Box as="article">Article</Box>`
+        });
+      }
+
+      // Check for hardcoded elements that could be polymorphic
+      // e.g., a component that always renders <div> but could be semantic
+      const rendersDiv = /<div[^>]*data-slot=/.test(code);
+      const hasSemanticProps = /role=["'](?:navigation|main|banner|contentinfo|complementary|article|region)["']/.test(code);
+
+      if (rendersDiv && hasSemanticProps && !hasAsProp) {
+        violations.push({
+          ruleId: 'supports-polymorphism',
+          message: 'Component uses role attribute - consider supporting "as" prop for semantic HTML instead',
+          suggestion: 'Replace <div role="navigation"> with as="nav" support'
+        });
+      }
+
+      return violations;
     },
     example: {
-      bad: `// Only renders as button
-<Button>Click</Button>`,
-      good: `// Can render as link
-<Button asChild>
-  <a href="/home">Click</a>
-</Button>`
+      bad: `// Hardcoded element - no flexibility
+function Button({ children, ...props }) {
+  return <button {...props}>{children}</button>
+}
+
+// Hardcoded div with role - should use semantic element
+function Nav({ children }) {
+  return <div role="navigation">{children}</div>
+}`,
+      good: `// With asChild (Radix Slot pattern)
+import { Slot } from "@radix-ui/react-slot"
+
+function Button({ asChild = false, ...props }) {
+  const Comp = asChild ? Slot : "button"
+  return <Comp data-slot="button" {...props} />
+}
+
+// With as prop (for layout components)
+function Container<E extends React.ElementType = 'div'>({
+  as,
+  ...props
+}: { as?: E } & React.ComponentPropsWithoutRef<E>) {
+  const Element = as || 'div';
+  return <Element data-slot="container" {...props} />;
+}
+
+// Usage:
+<Button asChild><a href="/">Link</a></Button>
+<Container as="section">Content</Container>
+<Container as="nav">Navigation</Container>`
     }
   },
 
