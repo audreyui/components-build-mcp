@@ -332,6 +332,33 @@ cn(isActive && 'active', 'base-styles')`,
     check: (code) => {
       const violations: RuleViolation[] = [];
 
+      // Check for Tailwind arbitrary hex values: bg-[#5B9BD5], text-[#2B5BA8], etc.
+      const arbitraryHexColors = code.match(/(?:bg|text|border|fill|stroke)-\[#[0-9A-Fa-f]{3,8}(?:\/\d+)?\]/g);
+
+      if (arbitraryHexColors && arbitraryHexColors.length > 0) {
+        violations.push({
+          ruleId: 'uses-design-tokens',
+          message: `Found ${arbitraryHexColors.length} hardcoded hex color(s) in Tailwind arbitrary values: ${arbitraryHexColors.slice(0, 3).join(', ')}`,
+          suggestion: `Use CSS variables instead: bg-[var(--custom-color)] or define semantic tokens.
+
+Bad:  bg-[#5B9BD5] text-[#2B5BA8] dark:bg-[#5B9BD5]/10
+Good: bg-primary text-primary-foreground (with CSS vars handling dark mode)`,
+          line: findLineNumber(code, arbitraryHexColors[0])
+        });
+      }
+
+      // Check for manual dark mode color overrides (sign of missing design tokens)
+      const darkModeColorOverrides = code.match(/dark:(?:bg|text|border)-\[#[0-9A-Fa-f]{3,8}/g);
+
+      if (darkModeColorOverrides && darkModeColorOverrides.length > 0) {
+        violations.push({
+          ruleId: 'uses-design-tokens',
+          message: `Found ${darkModeColorOverrides.length} manual dark mode color overrides - this should be handled by CSS variables`,
+          suggestion: `Instead of: bg-[#5B9BD5] dark:bg-[#7BA3D9]
+Use: bg-[var(--brand-color)] where --brand-color changes in .dark`
+        });
+      }
+
       // Check for hardcoded color values in className (Tailwind palette colors)
       const hardcodedTailwindColors = code.match(/(?:bg|text|border)-(?:red|blue|green|yellow|purple|pink|gray|slate|zinc|neutral|stone|amber|lime|emerald|teal|cyan|sky|indigo|violet|fuchsia|rose)-\d{2,3}/g);
 
@@ -385,8 +412,8 @@ cn(isActive && 'active', 'base-styles')`,
       return violations;
     },
     example: {
-      bad: `const config = { primary: "#8B5CF6" };
-<div style={{ color: config.primary }}>`,
+      bad: `<Badge className="bg-[#5B9BD5]/20 text-[#2B5BA8] dark:bg-[#5B9BD5]/10 dark:text-[#7BA3D9]">
+const config = { primary: "#8B5CF6" };`,
       good: `const config = { "--primary": "#8B5CF6" };
 <div style={config as React.CSSProperties} className="text-[var(--primary)]">`
     }
