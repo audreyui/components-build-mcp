@@ -296,22 +296,63 @@ return <div className="content" {...props} />;`
     check: (code) => {
       const violations: RuleViolation[] = [];
 
-      // Check for hardcoded color values in className
-      const hardcodedColors = code.match(/(?:bg|text|border)-(?:red|blue|green|yellow|purple|pink|gray|slate|zinc|neutral|stone|amber|lime|emerald|teal|cyan|sky|indigo|violet|fuchsia|rose)-\d{2,3}/g);
+      // Check for hardcoded color values in className (Tailwind palette colors)
+      const hardcodedTailwindColors = code.match(/(?:bg|text|border)-(?:red|blue|green|yellow|purple|pink|gray|slate|zinc|neutral|stone|amber|lime|emerald|teal|cyan|sky|indigo|violet|fuchsia|rose)-\d{2,3}/g);
 
-      if (hardcodedColors && hardcodedColors.length > 3) {
+      if (hardcodedTailwindColors && hardcodedTailwindColors.length > 3) {
         violations.push({
           ruleId: 'uses-design-tokens',
-          message: 'Consider using semantic design tokens (primary, secondary, destructive) instead of hardcoded colors',
+          message: 'Consider using semantic design tokens (primary, secondary, destructive) instead of hardcoded Tailwind colors',
           suggestion: 'Use bg-primary, text-foreground, border-border, etc.'
+        });
+      }
+
+      // Check for hardcoded hex colors in style objects or JSX
+      // Matches: color: "#8B5CF6", background: '#fff', etc.
+      const hexInStyles = code.match(/(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*["']#[0-9A-Fa-f]{3,8}["']/g);
+
+      if (hexInStyles && hexInStyles.length > 0) {
+        violations.push({
+          ruleId: 'uses-design-tokens',
+          message: `Found ${hexInStyles.length} hardcoded hex color(s) in style objects`,
+          suggestion: 'Use CSS variables: style={{ color: "var(--primary)" }} or define as CSS custom properties',
+          line: findLineNumber(code, hexInStyles[0])
+        });
+      }
+
+      // Check for hex values assigned to variables (config objects)
+      // Matches: primary: "#8B5CF6", color: '#fff', etc.
+      const hexInConfig = code.match(/\w+\s*:\s*["']#[0-9A-Fa-f]{3,8}["']/g);
+
+      // Filter out CSS variable definitions which are fine
+      const nonCssVarHex = hexInConfig?.filter(match => !match.includes('--'));
+
+      if (nonCssVarHex && nonCssVarHex.length > 3) {
+        violations.push({
+          ruleId: 'uses-design-tokens',
+          message: `Found ${nonCssVarHex.length} hardcoded hex colors in config/variables`,
+          suggestion: 'Define colors as CSS variables: "--palette-primary": "#8B5CF6" then use var(--palette-primary)'
+        });
+      }
+
+      // Check for rgb/rgba/hsl/hsla hardcoded values
+      const hardcodedRgbHsl = code.match(/(?:rgb|rgba|hsl|hsla)\s*\([^)]+\)/g);
+
+      if (hardcodedRgbHsl && hardcodedRgbHsl.length > 3) {
+        violations.push({
+          ruleId: 'uses-design-tokens',
+          message: `Found ${hardcodedRgbHsl.length} hardcoded rgb/hsl colors`,
+          suggestion: 'Use CSS variables for colors to enable theming'
         });
       }
 
       return violations;
     },
     example: {
-      bad: `className="bg-blue-500 text-white"`,
-      good: `className="bg-primary text-primary-foreground"`
+      bad: `const config = { primary: "#8B5CF6" };
+<div style={{ color: config.primary }}>`,
+      good: `const config = { "--primary": "#8B5CF6" };
+<div style={config as React.CSSProperties} className="text-[var(--primary)]">`
     }
   },
 
