@@ -799,6 +799,101 @@ export const Content = ...`
   <a href="/home">Click</a>
 </Button>`
     }
+  },
+
+  // ============================================
+  // DOCUMENTATION RULES
+  // ============================================
+  {
+    id: 'variants-documented',
+    name: 'Variants Are Documented',
+    description: 'Variant props should have JSDoc comments explaining their purpose',
+    category: 'types',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for variant/size props without JSDoc
+      const variantProps = code.match(/(?:variant|size)\??\s*:\s*['"][^'"]+['"]\s*\|/g);
+
+      if (variantProps && variantProps.length > 0) {
+        // Check if there's JSDoc before the type definition
+        const hasJsDoc = /\/\*\*[\s\S]*?\*\/\s*(?:export\s+)?(?:type|interface)\s+\w+Props/.test(code);
+        const hasInlineJsDoc = /@(?:default|description)/.test(code);
+
+        if (!hasJsDoc && !hasInlineJsDoc) {
+          violations.push({
+            ruleId: 'variants-documented',
+            message: 'Variant props should have JSDoc comments',
+            suggestion: 'Add /** @default "primary" */ or descriptive comments above variant props'
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `type ButtonProps = {
+  variant?: 'primary' | 'secondary';
+  size?: 'sm' | 'md' | 'lg';
+};`,
+      good: `type ButtonProps = {
+  /**
+   * The visual style of the button
+   * @default "primary"
+   */
+  variant?: 'primary' | 'secondary';
+  /**
+   * The size of the button
+   * @default "md"
+   */
+  size?: 'sm' | 'md' | 'lg';
+};`
+    }
+  },
+
+  {
+    id: 'extracts-repeated-patterns',
+    name: 'Extracts Repeated Patterns',
+    description: 'Repeated style patterns should be extracted into shared utilities',
+    category: 'styling',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Common patterns that should be extracted
+      const commonPatterns = [
+        { pattern: /focus-visible:outline-none\s+focus-visible:ring/g, name: 'focus ring' },
+        { pattern: /disabled:pointer-events-none\s+disabled:opacity/g, name: 'disabled state' },
+        { pattern: /transition-(?:all|colors|opacity|transform)/g, name: 'transition' },
+      ];
+
+      for (const { pattern, name } of commonPatterns) {
+        const matches = code.match(pattern);
+        if (matches && matches.length >= 3) {
+          violations.push({
+            ruleId: 'extracts-repeated-patterns',
+            message: `The ${name} pattern appears ${matches.length} times - consider extracting to a shared utility`,
+            suggestion: `Create a utility: export const ${name.replace(' ', '')} = '${matches[0]}'; and import it`
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Same focus ring copied everywhere
+<Button className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" />
+<Input className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" />`,
+      good: `// utils/styles.ts
+export const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+export const disabled = 'disabled:pointer-events-none disabled:opacity-50';
+
+// In components
+<Button className={cn(focusRing, disabled, className)} />`
+    }
   }
 ];
 
