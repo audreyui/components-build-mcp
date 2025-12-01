@@ -1477,6 +1477,389 @@ export const disabled = 'disabled:pointer-events-none disabled:opacity-50';
 // In components
 <Button className={cn(focusRing, disabled, className)} />`
     }
+  },
+
+  // ============================================
+  // ASCHILD PATTERN RULES
+  // ============================================
+  {
+    id: 'aschild-spreads-props',
+    name: 'asChild Component Spreads Props',
+    description: 'Components used with asChild must spread props to receive parent behavior',
+    category: 'composition',
+    severity: 'error',
+    weight: 10,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for components that DON'T spread props
+      // Pattern: function/const Component = ({ children }) => ... (no ...props)
+      const noSpreadPattern = /(?:const|function)\s+(\w+)\s*=?\s*\(\s*\{\s*(?:children|className)(?:\s*,\s*(?:children|className))*\s*\}\s*\)/g;
+
+      let match;
+      while ((match = noSpreadPattern.exec(code)) !== null) {
+        const componentName = match[1];
+        // Skip if this looks like a type definition
+        if (code.includes(`${componentName}Props`)) {
+          violations.push({
+            ruleId: 'aschild-spreads-props',
+            message: `${componentName} doesn't spread props - won't work correctly with asChild`,
+            suggestion: `Always spread props to receive parent behavior:
+
+// ❌ Won't receive trigger behavior
+const ${componentName} = ({ children }) => <div>{children}</div>;
+
+// ✅ Properly receives all props
+const ${componentName} = ({ children, ...props }) => (
+  <div {...props}>{children}</div>
+);`
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Won't work with asChild - props not spread
+const Button = ({ children }) => <button>{children}</button>;`,
+      good: `// Works with asChild - props are spread
+const Button = ({ children, ...props }) => (
+  <button {...props}>{children}</button>
+);`
+    }
+  },
+
+  // ============================================
+  // ACCESSIBILITY ADVANCED RULES
+  // ============================================
+  {
+    id: 'nav-has-label',
+    name: 'Navigation Has Label',
+    description: 'Navigation elements should have aria-label for screen readers',
+    category: 'accessibility',
+    severity: 'warning',
+    weight: 5,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for <nav> without aria-label
+      const navWithoutLabel = /<nav(?![^>]*aria-label)/g;
+      const matches = code.match(navWithoutLabel);
+
+      if (matches && matches.length > 0) {
+        violations.push({
+          ruleId: 'nav-has-label',
+          message: `Found ${matches.length} <nav> element(s) without aria-label`,
+          suggestion: `Add aria-label to describe the navigation:
+
+<nav aria-label="Main navigation">
+<nav aria-label="Breadcrumb">
+<nav aria-label="Footer links">`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `<nav>
+  <ul>...</ul>
+</nav>`,
+      good: `<nav aria-label="Main navigation">
+  <ul>...</ul>
+</nav>`
+    }
+  },
+
+  {
+    id: 'focus-visible-styles',
+    name: 'Uses Focus Visible',
+    description: 'Use focus-visible instead of focus for keyboard-only focus styles',
+    category: 'accessibility',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for :focus without :focus-visible
+      const focusWithoutVisible = /(?:^|[^-])focus:/g;
+      const hasFocusVisible = /focus-visible:/.test(code);
+
+      const matches = code.match(focusWithoutVisible);
+      if (matches && matches.length > 2 && !hasFocusVisible) {
+        violations.push({
+          ruleId: 'focus-visible-styles',
+          message: 'Using focus: instead of focus-visible: - focus styles will show on mouse click',
+          suggestion: `Use focus-visible: to only show focus styles for keyboard navigation:
+
+// ❌ Shows focus ring on mouse click too
+className="focus:ring-2 focus:ring-blue-500"
+
+// ✅ Only shows focus ring for keyboard users
+className="focus-visible:ring-2 focus-visible:ring-blue-500"`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `<button className="focus:outline-none focus:ring-2">`,
+      good: `<button className="focus-visible:outline-none focus-visible:ring-2">`
+    }
+  },
+
+  {
+    id: 'input-has-label',
+    name: 'Input Has Associated Label',
+    description: 'Form inputs should have associated labels or aria-label',
+    category: 'accessibility',
+    severity: 'warning',
+    weight: 8,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for input without aria-label and not near a label
+      const inputPattern = /<input(?![^>]*(?:aria-label|aria-labelledby|id=))[^>]*>/g;
+      const matches = code.match(inputPattern);
+
+      // Only flag if there's no <label> in the code at all
+      const hasLabel = /<label/.test(code);
+
+      if (matches && matches.length > 0 && !hasLabel) {
+        violations.push({
+          ruleId: 'input-has-label',
+          message: `Found input(s) without labels or aria-label`,
+          suggestion: `Associate inputs with labels:
+
+// Option 1: Wrapping label
+<label>
+  Email
+  <input type="email" />
+</label>
+
+// Option 2: Using htmlFor/id
+<label htmlFor="email">Email</label>
+<input id="email" type="email" />
+
+// Option 3: aria-label for icon inputs
+<input type="search" aria-label="Search" />`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `<input type="email" placeholder="Email" />`,
+      good: `<label>
+  Email
+  <input type="email" />
+</label>`
+    }
+  },
+
+  {
+    id: 'prefers-aria-disabled',
+    name: 'Prefers aria-disabled Over disabled',
+    description: 'Consider aria-disabled over disabled to maintain focusability',
+    category: 'accessibility',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for disabled without aria-disabled explanation
+      const hasDisabled = /disabled(?:\s*=\s*\{|\s*\})/.test(code);
+      const hasAriaDisabled = /aria-disabled/.test(code);
+      const hasExplanation = /aria-describedby|disabled.*help|disabled.*explain/i.test(code);
+
+      if (hasDisabled && !hasAriaDisabled && !hasExplanation) {
+        violations.push({
+          ruleId: 'prefers-aria-disabled',
+          message: 'Using disabled attribute - users cannot focus to understand why',
+          suggestion: `Consider aria-disabled with explanation:
+
+// ❌ User can't understand why button is disabled
+<button disabled={!isValid}>Submit</button>
+
+// ✅ User can focus and learn why
+<button
+  aria-disabled={!isValid}
+  aria-describedby="submit-help"
+  onClick={isValid ? handleSubmit : undefined}
+  className={!isValid ? 'opacity-50 cursor-not-allowed' : ''}
+>
+  Submit
+</button>
+<span id="submit-help">
+  {!isValid && 'Please fill in all required fields'}
+</span>`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `<button disabled={!isValid}>Submit</button>`,
+      good: `<button
+  aria-disabled={!isValid}
+  aria-describedby="submit-help"
+>Submit</button>
+<span id="submit-help">{!isValid && 'Complete required fields'}</span>`
+    }
+  },
+
+  {
+    id: 'cva-outside-component',
+    name: 'CVA Defined Outside Component',
+    description: 'CVA variants should be defined outside the component to avoid recreation',
+    category: 'styling',
+    severity: 'warning',
+    weight: 5,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for cva() inside a function component
+      const componentPattern = /(?:function|const)\s+\w+\s*(?:=|[\(<])[\s\S]*?cva\(/g;
+
+      // More specific: cva inside the component body
+      const cvaInsideComponent = /(?:function|const)\s+\w+\s*(?:=\s*\([^)]*\)\s*=>|[\(<])[^}]*\breturn\b[^}]*\bcva\(/;
+
+      if (cvaInsideComponent.test(code)) {
+        violations.push({
+          ruleId: 'cva-outside-component',
+          message: 'CVA variants defined inside component - recreated on every render',
+          suggestion: `Define CVA variants outside the component:
+
+// ❌ Recreated on every render
+function Button({ variant }) {
+  const buttonVariants = cva('...', { variants: {...} });
+  return <button className={buttonVariants({ variant })} />;
+}
+
+// ✅ Defined once, reused
+const buttonVariants = cva('...', { variants: {...} });
+
+function Button({ variant }) {
+  return <button className={buttonVariants({ variant })} />;
+}`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `function Button({ variant }) {
+  const buttonVariants = cva('base', { variants: {} });
+  return <button className={buttonVariants({ variant })} />;
+}`,
+      good: `const buttonVariants = cva('base', { variants: {} });
+
+function Button({ variant }) {
+  return <button className={buttonVariants({ variant })} />;
+}`
+    }
+  },
+
+  {
+    id: 'live-region-for-dynamic',
+    name: 'Live Region for Dynamic Content',
+    description: 'Dynamic content changes should use aria-live for screen reader announcements',
+    category: 'accessibility',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for loading states without aria-live
+      const hasLoadingState = /isLoading|loading|\.loading/i.test(code);
+      const hasErrorState = /error|Error|isError/i.test(code);
+      const hasAriaLive = /aria-live|role="alert"|role="status"/.test(code);
+
+      if ((hasLoadingState || hasErrorState) && !hasAriaLive) {
+        violations.push({
+          ruleId: 'live-region-for-dynamic',
+          message: 'Dynamic loading/error states should announce to screen readers',
+          suggestion: `Add aria-live for dynamic content:
+
+// Loading states
+<div aria-live="polite" aria-busy={isLoading}>
+  {isLoading ? "Loading..." : \`\${items.length} items\`}
+</div>
+
+// Error messages
+<div role="alert" aria-live="assertive">
+  {error && \`Error: \${error.message}\`}
+</div>
+
+// Status updates
+<div role="status" aria-live="polite">
+  {saved && "Changes saved"}
+</div>`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `{isLoading && <span>Loading...</span>}
+{error && <span className="text-red-500">{error}</span>}`,
+      good: `<div aria-live="polite" aria-busy={isLoading}>
+  {isLoading ? "Loading..." : "Content loaded"}
+</div>
+<div role="alert">{error}</div>`
+    }
+  },
+
+  {
+    id: 'touch-target-size',
+    name: 'Touch Target Size',
+    description: 'Interactive elements should have minimum 44x44px touch targets',
+    category: 'accessibility',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for small size classes on interactive elements
+      const smallInteractive = /(?:<button|<a\s|onClick)[^>]*(?:size-\d|w-\d|h-\d|p-1|p-0\.5)/g;
+      const matches = code.match(smallInteractive);
+
+      // Check for size utilities smaller than min touch target (44px ≈ h-11, w-11)
+      const tooSmall = /(?:size-[1-9]|w-[1-9]|h-[1-9]|size-10|w-10|h-10)(?![0-9])/;
+
+      if (matches && matches.some(m => tooSmall.test(m))) {
+        violations.push({
+          ruleId: 'touch-target-size',
+          message: 'Interactive element may be too small for touch (min 44x44px)',
+          suggestion: `Ensure minimum 44x44px touch targets:
+
+// ❌ Too small for touch
+<button className="size-6">
+  <Icon />
+</button>
+
+// ✅ Minimum touch target
+<button className="size-11 p-2">
+  <Icon className="size-6" />
+</button>
+
+// ✅ Or use invisible touch area
+<button className="relative size-6">
+  <span className="absolute -inset-2" /> <!-- Extends touch area -->
+  <Icon />
+</button>`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `<button className="size-6" onClick={...}>
+  <XIcon />
+</button>`,
+      good: `<button className="size-11 p-2" onClick={...}>
+  <XIcon className="size-6" />
+</button>`
+    }
   }
 ];
 
