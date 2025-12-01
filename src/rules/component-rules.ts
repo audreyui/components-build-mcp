@@ -1101,6 +1101,289 @@ function Container<E extends React.ElementType = 'div'>({
     }
   },
 
+  {
+    id: 'semantic-default-element',
+    name: 'Semantic Default Element',
+    description: 'Polymorphic components should default to semantic elements, not generic divs',
+    category: 'composition',
+    severity: 'warning',
+    weight: 5,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for components with 'as' prop that default to 'div' when they should be semantic
+      const componentDefaults = [
+        // Component name patterns and their expected semantic defaults
+        { pattern: /(?:const|function)\s+Article.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'article' },
+        { pattern: /(?:const|function)\s+Navigation.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'nav' },
+        { pattern: /(?:const|function)\s+Nav\b.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'nav' },
+        { pattern: /(?:const|function)\s+Header\b.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'header' },
+        { pattern: /(?:const|function)\s+Footer\b.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'footer' },
+        { pattern: /(?:const|function)\s+Main\b.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'main' },
+        { pattern: /(?:const|function)\s+Aside\b.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'aside' },
+        { pattern: /(?:const|function)\s+Section\b.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'section' },
+        { pattern: /(?:const|function)\s+Heading.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'h2' },
+        { pattern: /(?:const|function)\s+Title.*as:\s*Element\s*=\s*['"]div['"]/, expected: 'h1 or h2' },
+      ];
+
+      for (const { pattern, expected } of componentDefaults) {
+        if (pattern.test(code)) {
+          const match = code.match(/(?:const|function)\s+(\w+)/);
+          const componentName = match ? match[1] : 'Component';
+          violations.push({
+            ruleId: 'semantic-default-element',
+            message: `${componentName} defaults to 'div' but should default to '${expected}'`,
+            suggestion: `Change default from 'div' to '${expected}':
+
+// ❌ Too generic
+function ${componentName}({ as: Element = 'div', ...props }) { }
+
+// ✅ Semantic default
+function ${componentName}({ as: Element = '${expected}', ...props }) { }`
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Too generic defaults
+function Article({ as: Element = 'div', ...props }) { }
+function Navigation({ as: Element = 'div', ...props }) { }
+function Heading({ as: Element = 'div', ...props }) { }`,
+      good: `// Semantic defaults
+function Article({ as: Element = 'article', ...props }) { }
+function Navigation({ as: Element = 'nav', ...props }) { }
+function Heading({ as: Element = 'h2', ...props }) { }`
+    }
+  },
+
+  {
+    id: 'polymorphic-type-safety',
+    name: 'Polymorphic Type Safety',
+    description: 'Polymorphic components should use proper TypeScript generics for type safety',
+    category: 'types',
+    severity: 'warning',
+    weight: 5,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for 'as' prop with 'any' type
+      if (/as\s*\??\s*:\s*any/.test(code)) {
+        violations.push({
+          ruleId: 'polymorphic-type-safety',
+          message: "The 'as' prop is typed as 'any' - this loses type safety",
+          suggestion: `Use proper generic typing:
+
+type PolymorphicProps<E extends React.ElementType> = {
+  as?: E;
+} & React.ComponentPropsWithoutRef<E>;
+
+function Component<E extends React.ElementType = 'div'>({
+  as,
+  ...props
+}: PolymorphicProps<E>) {
+  const Element = as || 'div';
+  return <Element {...props} />;
+}`
+        });
+      }
+
+      // Check for 'as' prop with string type instead of ElementType
+      if (/as\s*\??\s*:\s*string/.test(code)) {
+        violations.push({
+          ruleId: 'polymorphic-type-safety',
+          message: "The 'as' prop is typed as 'string' - use React.ElementType for proper inference",
+          suggestion: `Use React.ElementType:
+
+// ❌ No inference
+as?: string
+
+// ✅ Full type inference
+<E extends React.ElementType = 'div'>
+as?: E`
+        });
+      }
+
+      // Check for polymorphic component without generic type parameter
+      const hasAsProp = /\bas\s*[?:]/.test(code);
+      const hasGeneric = /<\s*E\s+extends\s+React\.ElementType/.test(code);
+
+      if (hasAsProp && !hasGeneric && !/asChild/.test(code)) {
+        // Only flag if it looks like a polymorphic component definition
+        if (/(?:const|function)\s+\w+.*as\s*[?:]/.test(code)) {
+          violations.push({
+            ruleId: 'polymorphic-type-safety',
+            message: "Polymorphic component lacks generic type parameter - props won't be inferred correctly",
+            suggestion: `Add generic type parameter:
+
+function Component<E extends React.ElementType = 'div'>({
+  as,
+  ...props
+}: { as?: E } & React.ComponentPropsWithoutRef<E>) {
+  const Element = as || 'div';
+  return <Element {...props} />;
+}
+
+// Now TypeScript infers props based on 'as':
+<Component as="a" href="/" />  // ✅ href is valid
+<Component as="button" href="/" />  // ❌ Error: href not on button`
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// No type safety
+function Component({ as: Element = 'div', ...props }: any) {
+  return <Element {...props} />;
+}
+
+// String type loses inference
+function Box({ as }: { as?: string }) { }`,
+      good: `// Full type safety with generics
+type PolymorphicProps<E extends React.ElementType> = {
+  as?: E;
+} & React.ComponentPropsWithoutRef<E>;
+
+function Component<E extends React.ElementType = 'div'>({
+  as,
+  ...props
+}: PolymorphicProps<E>) {
+  const Element = as || 'div';
+  return <Element {...props} />;
+}
+
+// Props are inferred from element type:
+<Component as="a" href="/home" />  // ✅ href valid
+<Component as="button" type="submit" />  // ✅ type valid`
+    }
+  },
+
+  {
+    id: 'polymorphic-keyboard-handler',
+    name: 'Polymorphic Keyboard Handler',
+    description: 'Non-button interactive elements need keyboard event handlers for accessibility',
+    category: 'accessibility',
+    severity: 'warning',
+    weight: 8,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for onClick without onKeyDown on polymorphic components
+      const hasAsProp = /\bas\s*[?:]/.test(code) || /as\s*=/.test(code);
+      const hasOnClick = /onClick/.test(code);
+      const hasKeyboardHandler = /onKeyDown|onKeyUp|onKeyPress/.test(code);
+
+      // If component supports 'as' and has onClick but no keyboard handler
+      if (hasAsProp && hasOnClick && !hasKeyboardHandler) {
+        violations.push({
+          ruleId: 'polymorphic-keyboard-handler',
+          message: "Polymorphic component with onClick needs keyboard handler for when rendered as non-button",
+          suggestion: `Add keyboard support for accessibility:
+
+function Interactive({ as: Element = 'button', onClick, ...props }) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Only needed for non-button elements
+    if (Element !== 'button' && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick?.(e as any);
+    }
+  };
+
+  return (
+    <Element
+      onClick={onClick}
+      onKeyDown={Element !== 'button' ? handleKeyDown : undefined}
+      tabIndex={Element !== 'button' && Element !== 'a' ? 0 : undefined}
+      role={Element !== 'button' && Element !== 'a' ? 'button' : undefined}
+      {...props}
+    />
+  );
+}`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Missing keyboard support
+function Clickable({ as: Element = 'div', onClick, ...props }) {
+  return <Element onClick={onClick} {...props} />;
+}
+
+// When rendered as div, Enter/Space won't work!`,
+      good: `// With keyboard support
+function Clickable({ as: Element = 'button', onClick, ...props }) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (Element !== 'button' && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick?.(e as any);
+    }
+  };
+
+  return (
+    <Element
+      onClick={onClick}
+      onKeyDown={Element !== 'button' ? handleKeyDown : undefined}
+      tabIndex={Element !== 'button' ? 0 : undefined}
+      role={Element !== 'button' ? 'button' : undefined}
+      {...props}
+    />
+  );
+}`
+    }
+  },
+
+  {
+    id: 'as-prop-documented',
+    name: 'As Prop Documented',
+    description: 'The as prop should have JSDoc documenting valid element choices',
+    category: 'types',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for 'as' prop without JSDoc
+      const hasAsProp = /\bas\s*\??\s*:/.test(code);
+      const hasAsJsDoc = /\/\*\*[\s\S]*?@(?:example|default)[\s\S]*?\*\/[\s\n]*.*as\s*\??\s*:/.test(code);
+
+      if (hasAsProp && !hasAsJsDoc) {
+        violations.push({
+          ruleId: 'as-prop-documented',
+          message: "The 'as' prop should have JSDoc documenting valid elements",
+          suggestion: `Add JSDoc to 'as' prop:
+
+interface BoxProps {
+  /**
+   * The HTML element to render as
+   * @default 'div'
+   * @example 'section', 'article', 'aside', 'main'
+   */
+  as?: 'div' | 'section' | 'article' | 'aside' | 'main' | 'header' | 'footer';
+}`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `interface BoxProps {
+  as?: React.ElementType;  // No documentation
+}`,
+      good: `interface BoxProps {
+  /**
+   * The HTML element to render as
+   * @default 'div'
+   * @example 'section', 'article', 'aside', 'main'
+   */
+  as?: 'div' | 'section' | 'article' | 'aside' | 'main' | 'header' | 'footer';
+}`
+    }
+  },
+
   // ============================================
   // DOCUMENTATION RULES
   // ============================================
