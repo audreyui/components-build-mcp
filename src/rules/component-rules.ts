@@ -1860,6 +1860,290 @@ function Button({ variant }) {
   <XIcon className="size-6" />
 </button>`
     }
+  },
+
+  // ============================================
+  // ARTIFACT CLASSIFICATION RULES
+  // ============================================
+  {
+    id: 'block-vs-component',
+    name: 'Block vs Component Classification',
+    description: 'Blocks should be production-ready compositions, not reusable components',
+    category: 'composition',
+    severity: 'warning',
+    weight: 5,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Indicators that this is a BLOCK (correct for blocks):
+      // - Multiple component imports
+      // - Hardcoded content/copy
+      // - Multiple sections/layouts
+      // - Specific use-case names (Hero, Pricing, Features, etc.)
+      const isBlock = /(?:Hero|Pricing|Features|Footer|Header|Auth|Onboarding|Dashboard|Settings|Billing|Chat|Landing)/i.test(code);
+      const hasMultipleImports = (code.match(/import.*from/g) || []).length > 5;
+      const hasHardcodedContent = /"[A-Z][^"]{20,}"|'[A-Z][^']{20,}'/.test(code); // Long strings with capital start
+
+      // Indicators that this should be a COMPONENT (problem if in a block):
+      // - Exports multiple sub-components (compound pattern)
+      // - Has variants/CVA
+      // - No hardcoded content
+      // - Generic naming (Button, Card, Input)
+      const exportsMultiple = (code.match(/export\s+(?:const|function)/g) || []).length > 3;
+      const hasCVA = /cva\(/.test(code);
+      const hasVariants = /variants?\s*[:=]/.test(code);
+
+      // If it looks like a block but exports like a component library
+      if (isBlock && exportsMultiple && hasCVA) {
+        violations.push({
+          ruleId: 'block-vs-component',
+          message: 'This appears to be a Block but exports multiple components with CVA variants',
+          suggestion: `Blocks should:
+- Be copy-paste friendly compositions
+- Import components, not define them
+- Have opinionated content/layout
+- Not export reusable sub-components with variants
+
+If this is meant to be reusable, it should be a Component.
+If it's a Block, move the sub-components to separate files.
+
+From definitions.mdx:
+"Blocks are typically not reusable like a component. You don't import them,
+but they typically import components and primitives."`
+        });
+      }
+
+      // If it looks like a component but has hardcoded content like a block
+      if (!isBlock && hasHardcodedContent && !hasMultipleImports && hasCVA) {
+        violations.push({
+          ruleId: 'block-vs-component',
+          message: 'Component has hardcoded content - should this be a Block instead?',
+          suggestion: `Components should:
+- Accept content via props/children
+- Not contain hardcoded copy/text
+- Be reusable across different contexts
+
+If this has specific content for a use-case, it's a Block, not a Component.`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// ❌ Block with component-style exports
+export const HeroTitle = ({ variant }) => cva(...)
+export const HeroDescription = ({ variant }) => cva(...)
+export const HeroButton = ({ variant }) => cva(...)
+
+// ❌ Component with hardcoded content
+export const Button = () => (
+  <button>Get Started for Free Today!</button>
+)`,
+      good: `// ✅ Block imports components, has opinionated content
+import { Button } from '@/components/ui/button';
+
+export function HeroBlock() {
+  return (
+    <section>
+      <h1>Get Started for Free Today!</h1>
+      <Button>Sign Up</Button>
+    </section>
+  );
+}
+
+// ✅ Component accepts content via props
+export const Button = ({ children, ...props }) => (
+  <button {...props}>{children}</button>
+)`
+    }
+  },
+
+  {
+    id: 'component-single-responsibility',
+    name: 'Component Single Responsibility',
+    description: 'Components should wrap a single element, not multiple unrelated elements',
+    category: 'composition',
+    severity: 'warning',
+    weight: 5,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check for components that render multiple root-level elements without composition
+      // Pattern: return ( <div>...<div>...<div>... ) without clear compound structure
+      const hasMultipleRootElements = /<(?:div|section|article)[^>]*>[\s\S]*<(?:div|section|article)[^>]*>[\s\S]*<(?:div|section|article)[^>]*>/;
+
+      // Check if it's using compound component pattern (which is OK)
+      const isCompound = /\w+\.\w+\s*=/.test(code) || /export\s+const\s+\w+\s*=.*Object\.assign/.test(code);
+
+      // Check if component accepts children (compositional)
+      const acceptsChildren = /children/.test(code);
+
+      // If it has many nested divs but isn't compound and doesn't accept children
+      if (hasMultipleRootElements.test(code) && !isCompound && !acceptsChildren) {
+        // Check if it's a block (which can have multiple elements)
+        const isBlock = /(?:Hero|Pricing|Features|Footer|Header|Block|Section|Page)/i.test(code);
+
+        if (!isBlock) {
+          violations.push({
+            ruleId: 'component-single-responsibility',
+            message: 'Component renders multiple elements - consider composition pattern',
+            suggestion: `From definitions.mdx: Components should wrap a single element.
+
+Either:
+1. Break into compound sub-components (Card.Header, Card.Content)
+2. Accept children for flexible composition
+3. If this is a full section/layout, it's a Block, not a Component
+
+// ❌ Too much responsibility
+const Card = ({ title, description, footer }) => (
+  <div>
+    <div className="header"><h2>{title}</h2></div>
+    <div className="body"><p>{description}</p></div>
+    <div className="footer">{footer}</div>
+  </div>
+);
+
+// ✅ Composable
+const Card = ({ children }) => <div>{children}</div>;
+const CardHeader = ({ children }) => <div>{children}</div>;
+const CardContent = ({ children }) => <div>{children}</div>;`
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Component doing too much
+const Card = ({ title, desc, footer, image }) => (
+  <div>
+    <img src={image} />
+    <h2>{title}</h2>
+    <p>{desc}</p>
+    <div>{footer}</div>
+  </div>
+);`,
+      good: `// Composable compound components
+const Card = ({ children }) => <div>{children}</div>;
+Card.Image = ({ src }) => <img src={src} />;
+Card.Title = ({ children }) => <h2>{children}</h2>;
+Card.Description = ({ children }) => <p>{children}</p>;`
+    }
+  },
+
+  {
+    id: 'primitive-should-be-unstyled',
+    name: 'Primitive Should Be Unstyled',
+    description: 'If building a primitive, it should not include styling',
+    category: 'composition',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check if this is named like a primitive
+      const isPrimitiveName = /(?:Primitive|Headless|Unstyled|Base)/.test(code);
+
+      // Check for styling
+      const hasStyling = /className=|style=|styled\.|css`/.test(code);
+      const hasTailwind = /(?:bg-|text-|p-|m-|flex|grid|rounded|border)/.test(code);
+
+      if (isPrimitiveName && (hasStyling || hasTailwind)) {
+        violations.push({
+          ruleId: 'primitive-should-be-unstyled',
+          message: 'This appears to be a Primitive but includes styling',
+          suggestion: `From definitions.mdx:
+"A primitive is the lowest-level building block that provides
+behavior and accessibility WITHOUT any styling."
+
+Primitives should:
+- Be completely unstyled (headless)
+- Encapsulate behavior, a11y, keyboard interaction
+- Let consumers provide all styling
+
+If you need styling, this is a Component, not a Primitive.`
+        });
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Primitive with styling - contradiction
+const PrimitiveButton = ({ children }) => (
+  <button className="bg-blue-500 rounded-lg p-2">
+    {children}
+  </button>
+);`,
+      good: `// True primitive - behavior only
+const PrimitiveButton = ({ children, ...props }) => (
+  <button
+    type="button"
+    role="button"
+    {...props}
+  >
+    {children}
+  </button>
+);`
+    }
+  },
+
+  {
+    id: 'utility-should-not-render',
+    name: 'Utility Should Not Render UI',
+    description: 'Utilities should be non-visual helpers, not components',
+    category: 'composition',
+    severity: 'info',
+    weight: 3,
+    check: (code) => {
+      const violations: RuleViolation[] = [];
+
+      // Check if this is named like a utility
+      const isUtilityName = /(?:use[A-Z]|util|helper|hook)/i.test(code);
+      const isExportedFunction = /export\s+(?:const|function)\s+(?:use[A-Z]|create|get|format|parse|is[A-Z])/.test(code);
+
+      // Check if it renders JSX
+      const rendersJSX = /<[A-Z]|<[a-z]+[^>]*>/.test(code);
+      const hasReturn = /return\s*\(?\s*</.test(code);
+
+      if ((isUtilityName || isExportedFunction) && (rendersJSX && hasReturn)) {
+        // Exception: hooks can return elements
+        const isHookReturningElement = /use[A-Z]\w*.*return.*</.test(code);
+
+        if (!isHookReturningElement) {
+          violations.push({
+            ruleId: 'utility-should-not-render',
+            message: 'This appears to be a Utility but renders UI',
+            suggestion: `From definitions.mdx:
+"A utility is a helper exported for developer ergonomics
+or composition; NOT rendered UI."
+
+Utilities should:
+- Be side-effect free
+- Not render any JSX
+- Be testable in isolation
+
+If this renders UI, it's a Component, not a Utility.`
+          });
+        }
+      }
+
+      return violations;
+    },
+    example: {
+      bad: `// Utility that renders - contradiction
+export function formatDate(date) {
+  return <span>{date.toLocaleDateString()}</span>;
+}`,
+      good: `// True utility - returns data, not UI
+export function formatDate(date: Date): string {
+  return date.toLocaleDateString();
+}
+
+// Component uses the utility
+const DateDisplay = ({ date }) => (
+  <span>{formatDate(date)}</span>
+);`
+    }
   }
 ];
 
