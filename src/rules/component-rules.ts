@@ -261,28 +261,64 @@ return <div className="content" {...props} />;`
     check: (code) => {
       const violations: RuleViolation[] = [];
 
-      // Check if cn() is used and className is not last
-      const cnCalls = code.match(/cn\([^)]+\)/g);
+      // Match cn() calls, handling nested parentheses for variant functions
+      const cnCallRegex = /cn\(([^)]*(?:\([^)]*\)[^)]*)*)\)/g;
+      let match;
 
-      if (cnCalls) {
-        for (const call of cnCalls) {
-          // className should be the last argument in cn()
-          if (/cn\([^)]*className[^)]*,[^)]+\)/.test(call)) {
+      while ((match = cnCallRegex.exec(code)) !== null) {
+        const args = match[1];
+
+        // Check 1: className should be last
+        // className followed by a comma means something comes after it
+        if (/className\s*,/.test(args)) {
+          violations.push({
+            ruleId: 'class-order',
+            message: 'className should be the last argument in cn() to allow user overrides',
+            line: findLineNumber(code, match[0]),
+            suggestion: 'Move className to the end: cn(baseClasses, variants, conditionals, className)'
+          });
+        }
+
+        // Check 2: Base styles (string literals) should come first
+        // If we see a conditional (&&) or variable before a string literal, flag it
+        const firstArg = args.split(',')[0]?.trim();
+        if (firstArg && /^[a-zA-Z]/.test(firstArg) && !firstArg.startsWith("'") && !firstArg.startsWith('"')) {
+          // First arg is a variable/conditional, not a string literal
+          // Check if there are string literals later
+          const hasLaterStringLiteral = /,\s*['"][^'"]+['"]/.test(args);
+          if (hasLaterStringLiteral) {
             violations.push({
               ruleId: 'class-order',
-              message: 'className should be the last argument in cn() to allow user overrides',
-              line: findLineNumber(code, call),
-              suggestion: 'Move className to the end: cn(baseClasses, variants, conditionals, className)'
+              message: 'Base styles (string literals) should come before variables and conditionals',
+              line: findLineNumber(code, match[0]),
+              suggestion: 'Order: cn("base-styles", variantStyles, conditional && "active", className)'
             });
           }
+        }
+
+        // Check 3: CVA variants function should come before conditionals
+        // Look for pattern: conditional && before variantFunction(
+        if (/\w+\s*&&\s*['"][^'"]*['"].*\w+Variants?\(/.test(args)) {
+          violations.push({
+            ruleId: 'class-order',
+            message: 'Variant styles should come before conditional styles',
+            line: findLineNumber(code, match[0]),
+            suggestion: 'Order: cn("base", variants({ size }), isActive && "active", className)'
+          });
         }
       }
 
       return violations;
     },
     example: {
-      bad: `cn(className, 'base-styles', isActive && 'active')`,
-      good: `cn('base-styles', isActive && 'active', className)`
+      bad: `cn(className, 'base-styles', isActive && 'active')
+cn(isActive && 'active', 'base-styles')`,
+      good: `cn(
+  'base-styles',            // 1. Base (always applied)
+  variants({ size }),       // 2. Variants (based on props)
+  isActive && 'active',     // 3. Conditionals (based on state)
+  className                 // 4. User overrides (last!)
+)`
     }
   },
 
