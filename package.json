@@ -1,6 +1,6 @@
 {
   "name": "components-build-mcp",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "MCP server implementing the components.build specification for grading, generating, and validating UI components",
   "type": "module",
   "main": "dist/index.js",
