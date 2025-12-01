@@ -940,6 +940,74 @@ export const Content = ...`
       // Check if component accepts 'as' prop
       const hasAsProp = /\bas\s*[?:]/.test(code) || /as\s*=/.test(code) || /as:\s*Element/.test(code);
 
+      // Check for compound component sub-parts that render links/buttons without polymorphism
+      // Matches: const NavItem = ..., const Logo = ..., function MobileNavItem, etc.
+      const subComponentPatterns = [
+        // Navigation items - should support button OR link
+        { pattern: /(?:const|function)\s+(NavItem|NavigationItem|MenuItem|MobileNavItem|NavLink)/g, type: 'navigation' },
+        // Logo - might be link or static
+        { pattern: /(?:const|function)\s+(Logo|Brand|LogoLink)/g, type: 'logo' },
+        // Root/Container components - should support semantic elements
+        { pattern: /(?:const|function)\s+(Root|Wrapper|Container|Section|Layout)/g, type: 'container' },
+        // Action items
+        { pattern: /(?:const|function)\s+(Action|CTA|ActionButton)/g, type: 'action' },
+      ];
+
+      for (const { pattern, type } of subComponentPatterns) {
+        const matches = code.match(pattern);
+        if (matches && !hasAsChild && !hasAsProp && !usesSlot) {
+          // Check if the component renders a hardcoded <a> or <button>
+          const rendersHardcodedLink = /<a\s/.test(code) && !/<a\s[^>]*\{/.test(code);
+          const rendersHardcodedButton = /<button\s/.test(code) && !/<button\s[^>]*\{/.test(code);
+
+          if ((type === 'navigation' || type === 'logo' || type === 'action') && (rendersHardcodedLink || rendersHardcodedButton)) {
+            violations.push({
+              ruleId: 'supports-polymorphism',
+              message: `${matches[0].replace(/(?:const|function)\s+/, '')} renders hardcoded ${rendersHardcodedLink ? '<a>' : '<button>'} - add asChild support for Next.js Link / React Router compatibility`,
+              suggestion: `Add asChild prop for router integration:
+
+// Before (hardcoded anchor)
+const NavItem = ({ href, children }) => (
+  <a href={href}>{children}</a>
+)
+
+// After (supports any link component)
+import { Slot } from "@radix-ui/react-slot"
+
+const NavItem = ({ href, asChild = false, children, ...props }) => {
+  const Comp = asChild ? Slot : "a"
+  return <Comp href={!asChild ? href : undefined} {...props}>{children}</Comp>
+}
+
+// Usage with Next.js:
+<NavItem asChild>
+  <Link href="/features">Features</Link>
+</NavItem>`
+            });
+          }
+
+          if (type === 'container') {
+            violations.push({
+              ruleId: 'supports-polymorphism',
+              message: `${matches[0].replace(/(?:const|function)\s+/, '')} should support 'as' prop for semantic HTML (<section>, <article>, etc.)`,
+              suggestion: `Add 'as' prop:
+
+const Root = <E extends React.ElementType = 'div'>({
+  as,
+  ...props
+}: { as?: E } & React.ComponentPropsWithoutRef<E>) => {
+  const Element = as || 'div';
+  return <Element {...props} />;
+}
+
+// Usage:
+<Hero.Root as="section" aria-labelledby="hero-title">
+<Hero.Root as="article">`
+            });
+          }
+        }
+      }
+
       // Interactive components SHOULD support polymorphism
       if (isInteractiveComponent && !usesSlot && !hasAsChild && !hasAsProp) {
         violations.push({
