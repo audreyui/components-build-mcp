@@ -546,7 +546,11 @@ Semantic tokens to use:
       const isComponent = /export\s+(?:const|function)/.test(code) && /<\w+/.test(code);
       const hasDataSlot = /data-slot=/.test(code);
 
-      if (isComponent && !hasDataSlot) {
+      // Skip blocks - they are compositions, not components
+      // Blocks use components that have data-slot, but the block itself doesn't need one
+      const isBlock = /(?:Hero|Pricing|Features|Footer|Header|Auth|Onboarding|Dashboard|Settings|Billing|Chat|Landing|Block|Page|Section)(?:Block|Page|Section)?/i.test(code);
+
+      if (isComponent && !hasDataSlot && !isBlock) {
         violations.push({
           ruleId: 'has-data-slot',
           message: 'Component should have a data-slot attribute for identification',
