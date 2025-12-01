@@ -1,0 +1,54 @@
+{
+  "name": "components-build-mcp",
+  "version": "1.0.0",
+  "description": "MCP server implementing the components.build specification for grading, generating, and validating UI components",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "components-build-mcp": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/audreyui/components-build-mcp.git"
+  },
+  "homepage": "https://github.com/audreyui/components-build-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/audreyui/components-build-mcp/issues"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "inspect": "npx @anthropic-ai/mcp-inspector node dist/index.js",
+    "vercel-build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "components-build",
+    "ui-components",
+    "component-grader",
+    "shadcn",
+    "radix-ui",
+    "accessibility",
+    "react",
+    "vue",
+    "svelte",
+    "design-system",
+    "component-library"
+  ],
+  "author": "AudreyUI <hello@audreyui.com> (https://audreyui.com)",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vercel/node": "^3.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

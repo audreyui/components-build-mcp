@@ -1,0 +1,16 @@
+components-build-mcp
+Copyright 2024 AudreyUI
+
+This project implements the components.build specification.
+
+The components.build specification is:
+Copyright 2023 Vercel, Inc.
+Licensed under the Apache License, Version 2.0
+https://github.com/haydenbleasel/components.build
+
+The specification was co-authored by:
+- Hayden Bleasel (https://github.com/haydenbleasel)
+- shadcn (https://github.com/shadcn)
+
+This is a community project and is not officially affiliated with,
+endorsed by, or sponsored by Vercel, Inc.
