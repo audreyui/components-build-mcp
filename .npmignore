@@ -1,0 +1,22 @@
+# Source files (dist/ is the compiled output)
+src/
+
+# Vercel API (not needed for npm package)
+api/
+
+# Documentation (keep README, LICENSE, NOTICE)
+DEPLOY.md
+SETUP.md
+CONTEXT.md
+
+# Config files
+tsconfig.json
+vercel.json
+.gitignore
+
+# Dev artifacts
+node_modules/
+.claude-flow/
+.swarm/
+.vercel/
+*.log
