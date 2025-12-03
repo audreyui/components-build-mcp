@@ -9,7 +9,7 @@ An MCP server that embeds the complete [components.build](https://components.bui
 | Asset | URL |
 |-------|-----|
 | **npm** | https://www.npmjs.com/package/components-build-mcp |
-| **GitHub** | https://github.com/audreyui/components-build-mcp |
+| **GitHub** | https://github.com/getlokiui/components-build-mcp |
 | **Vercel API** | https://mcp-server-l0cjofu64-klammertime-projects.vercel.app |
 
 ---
@@ -70,29 +70,24 @@ curl -X POST "https://mcp-server-l0cjofu64-klammertime-projects.vercel.app/?acti
 
 ### Domain Strategy
 
-Use `audreyui.dev` for developer/API stuff:
+Set up a subdomain for the API (optional):
 ```
-components.audreyui.dev   → components-build-mcp
-grader.audreyui.dev       → future MCP server
-ai.audreyui.dev           → another future MCP server
+components.yourdomain.com → components-build-mcp Vercel deployment
 ```
 
-Keep `audreyui.com` for the main marketing site/component library.
+### Step 1: Add DNS Record
 
-### Step 1: Add DNS Record in Porkbun
-
-1. Go to [Porkbun](https://porkbun.com) → Domain Management → `audreyui.dev` → DNS
-2. Add a CNAME record:
-   - **Host:** `components`
-   - **Type:** CNAME
-   - **Answer:** `cname.vercel-dns.com`
-   - **TTL:** 600 (or default)
+Add a CNAME record in your DNS provider:
+- **Host:** `components` (or your preferred subdomain)
+- **Type:** CNAME
+- **Answer:** `cname.vercel-dns.com`
+- **TTL:** 600 (or default)
 
 ### Step 2: Add Domain in Vercel
 
-1. Go to: https://vercel.com/klammertime-projects/mcp-server/settings/domains
+1. Go to your Vercel project settings → Domains
 2. Click "Add Domain"
-3. Enter: `components.audreyui.dev`
+3. Enter your subdomain
 4. Vercel will verify the DNS (may take a few minutes)
 
 ### Step 3: Update README and package.json
@@ -213,4 +208,4 @@ This project implements the [components.build](https://components.build) specifi
 - **Co-authored by:** [Hayden Bleasel](https://github.com/haydenbleasel) and [shadcn](https://github.com/shadcn)
 - **Licensed under:** Apache License 2.0
 
-This MCP server is a community project by [AudreyUI](https://audreyui.com) and is not officially affiliated with or endorsed by Vercel, Inc.
+This MCP server is a community project by Audrey Klammer and is not officially affiliated with or endorsed by Vercel, Inc.

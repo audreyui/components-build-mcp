@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * AudreyUI Component Rules MCP Server
+ * components-build-mcp Server
  *
  * This MCP server provides tools for:
  * - Getting component rules and documentation
@@ -25,7 +25,7 @@ import { getToolDefinitions, executeTool } from './tools/index.js';
 // Create the MCP server
 const server = new Server(
   {
-    name: 'audreyui-component-rules',
+    name: 'components-build-mcp',
     version: '1.0.0',
   },
   {
@@ -65,7 +65,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  console.error('AudreyUI Component Rules MCP Server running...');
+  console.error('components-build-mcp server running...');
   console.error('Available tools:');
   for (const tool of getToolDefinitions()) {
     console.error(`  - ${tool.name}: ${tool.description}`);

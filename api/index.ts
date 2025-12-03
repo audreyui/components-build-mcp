@@ -55,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return handleQuickReference(res);
       default:
         return res.status(200).json({
-          name: 'AudreyUI Component Rules API',
+          name: 'components-build-mcp API',
           version: '1.0.0',
           endpoints: [
             { path: '/?action=rules', method: 'GET', description: 'Get all rules' },

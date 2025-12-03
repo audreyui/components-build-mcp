@@ -49,7 +49,7 @@ Add to your Claude configuration (`~/.claude/claude_desktop_config.json`):
 ### For Local Development
 
 ```bash
-git clone https://github.com/audreyui/components-build-mcp.git
+git clone https://github.com/getlokiui/components-build-mcp.git
 cd components-build-mcp
 npm install
 npm run build
@@ -172,7 +172,7 @@ The specification is:
 - **Co-authored by** [Hayden Bleasel](https://github.com/haydenbleasel) and [shadcn](https://github.com/shadcn)
 - **Licensed under** Apache License 2.0
 
-This MCP server is a community project by [AudreyUI](https://audreyui.com) and is **not officially affiliated with or endorsed by Vercel, Inc.**
+This MCP server is a community project by Audrey Klammer and is **not officially affiliated with or endorsed by Vercel, Inc.**
 
 ## License
 
@@ -187,4 +187,4 @@ Contributions are welcome! Please read the components.build specification first 
 - [components.build](https://components.build) - The specification
 - [shadcn/ui](https://ui.shadcn.com) - Reference implementation
 - [Radix UI](https://radix-ui.com) - Primitives library
-- [AudreyUI](https://audreyui.com) - Component library built on this spec
+- [getlokiui](https://github.com/getlokiui) - Component library built on this spec

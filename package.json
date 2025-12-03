@@ -9,11 +9,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/audreyui/components-build-mcp.git"
+    "url": "https://github.com/getlokiui/components-build-mcp.git"
   },
-  "homepage": "https://github.com/audreyui/components-build-mcp#readme",
+  "homepage": "https://github.com/getlokiui/components-build-mcp#readme",
   "bugs": {
-    "url": "https://github.com/audreyui/components-build-mcp/issues"
+    "url": "https://github.com/getlokiui/components-build-mcp/issues"
   },
   "scripts": {
     "build": "tsc",
@@ -38,7 +38,7 @@
     "design-system",
     "component-library"
   ],
-  "author": "Audrey Klammer <audrey.ck@gmail.com> (https://audreyui.com)",
+  "author": "Audrey Klammer",
   "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
