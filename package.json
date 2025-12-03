@@ -38,7 +38,7 @@
     "design-system",
     "component-library"
   ],
-  "author": "Audrey Klammer",
+  "author": "Audrey Klammer <audrey.ck@gmail.com>",
   "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
